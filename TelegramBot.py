@@ -76,14 +76,26 @@ class StoryGenerator:
                 text="⏳ Đang tạo story... Quá trình này có thể mất vài phút đến vài giờ tùy độ dài story."
             )
             
-            # Run the story generator
+            # Run the story generator with real-time output
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.STDOUT  # Combine stderr with stdout
             )
             
-            stdout, stderr = await process.communicate()
+            # Read output in real-time and log it
+            output_lines = []
+            while True:
+                line = await process.stdout.readline()
+                if not line:
+                    break
+                line_text = line.decode('utf-8').strip()
+                output_lines.append(line_text)
+                logger.info(f"Write.py: {line_text}")
+            
+            await process.wait()
+            stdout = '\n'.join(output_lines).encode('utf-8')
+            stderr = b''
             
             # Clean up temp file
             os.unlink(prompt_file)
@@ -140,7 +152,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Các lệnh:\n"
         "/start - Bắt đầu\n"
         "/help - Hướng dẫn\n"
-        "/example - Xem ví dụ prompt\n\n"
+        "/example - Xem ví dụ prompt\n"
+        "/log - Xem tiến trình tạo story\n\n"
         "Chỉ cần gửi text prompt của bạn để bắt đầu!"
     )
 
@@ -171,6 +184,61 @@ async def example_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "that the traveler (Aether) sees.\""
     )
     await update.message.reply_text(example)
+
+
+async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /log command - show recent generation logs"""
+    user_id = update.effective_user.id
+    
+    # Check if user has active job
+    if user_id not in generator.active_jobs:
+        await update.message.reply_text(
+            "ℹ️ Bạn không có story nào đang được tạo."
+        )
+        return
+    
+    # Read recent logs from systemd journal
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['journalctl', '-u', 'aistorywriter-bot', '-n', '50', '--no-pager'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            logs = result.stdout
+            
+            # Filter relevant lines (chapter, outline, etc.)
+            relevant_lines = []
+            for line in logs.split('\n'):
+                if any(keyword in line.lower() for keyword in [
+                    'chapter', 'outline', 'generating', 'writing', 
+                    'stage', 'revision', 'scrub', 'story'
+                ]):
+                    relevant_lines.append(line)
+            
+            if relevant_lines:
+                log_text = '\n'.join(relevant_lines[-20:])  # Last 20 relevant lines
+                await update.message.reply_text(
+                    f"📋 Logs gần đây:\n\n```\n{log_text[:3000]}\n```",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo..."
+                )
+        else:
+            await update.message.reply_text(
+                "❌ Không thể đọc logs. Vui lòng thử lại sau."
+            )
+            
+    except Exception as e:
+        logger.error(f"Error reading logs: {e}")
+        await update.message.reply_text(
+            "❌ Lỗi khi đọc logs. Vui lòng liên hệ admin."
+        )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -234,6 +302,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("example", example_command))
+    application.add_handler(CommandHandler("log", log_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Start bot
