@@ -39,7 +39,7 @@ SCRUB_NO_SCRUB = False  # Note this value is overridden by the argparser
 EXPAND_OUTLINE = False  # Note this value is overridden by the argparser
 ENABLE_FINAL_EDIT_PASS = False  # Note this value is overridden by the argparser
 
-SCENE_GENERATION_PIPELINE = True
+SCENE_GENERATION_PIPELINE = False  # Disabled for llama3:8B - it struggles with strict JSON format
 
 OPTIONAL_OUTPUT_NAME = ""
 
