@@ -69,7 +69,7 @@ def GenerateChapter(
     ChapterSegmentMessages = Interface.SafeGenerateText(
         _Logger,
         ChapterSegmentMessages,
-        Writer.Config.CHAPTER_STAGE1_WRITER_MODEL, _MinWordCount=120
+        Writer.Config.CHAPTER_STAGE1_WRITER_MODEL, _MinWordCount=80
     )  # CHANGE THIS MODEL EVENTUALLY - BUT IT WORKS FOR NOW!!!
     ThisChapterOutline: str = Interface.GetLastMessageText(ChapterSegmentMessages)
     _Logger.Log(f"Created Chapter Specific Outline", 4)

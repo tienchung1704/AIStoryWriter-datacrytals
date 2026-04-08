@@ -50,7 +50,7 @@ class StoryGenerator:
             # Prepare output filename
             output_file = f"Stories/Telegram_{user_id}_{chat_id}"
             
-            # Build command
+            # Build command - use Ollama llama3
             cmd = [
                 'python', 'Write.py',
                 '-Prompt', prompt_file,
@@ -67,7 +67,8 @@ class StoryGenerator:
                 '-InfoModel', 'ollama://llama3',
                 '-ScrubModel', 'ollama://llama3',
                 '-CheckerModel', 'ollama://llama3',
-                '-TranslatorModel', 'ollama://llama3'
+                '-TranslatorModel', 'ollama://llama3',
+                '-NoChapterRevision'  # Disable revisions to speed up
             ]
             
             # Send status update
@@ -202,15 +203,24 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Read recent logs from systemd journal
+    # Read recent logs from systemd journal (without sudo)
     try:
         import subprocess
         result = subprocess.run(
-            ['journalctl', '-u', 'aistorywriter-bot', '-n', '50', '--no-pager'],
+            ['journalctl', '--user-unit=aistorywriter-bot', '-n', '100', '--no-pager'],
             capture_output=True,
             text=True,
             timeout=5
         )
+        
+        # If user journal doesn't work, try system journal
+        if result.returncode != 0:
+            result = subprocess.run(
+                ['journalctl', '-u', 'aistorywriter-bot', '-n', '100', '--no-pager'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
         
         if result.returncode == 0:
             logs = result.stdout
@@ -218,31 +228,48 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Filter relevant lines (chapter, outline, etc.)
             relevant_lines = []
             for line in logs.split('\n'):
-                if any(keyword in line.lower() for keyword in [
-                    'chapter', 'outline', 'generating', 'writing', 
-                    'stage', 'revision', 'scrub', 'story'
-                ]):
-                    relevant_lines.append(line)
+                # Look for Write.py output
+                if 'Write.py:' in line:
+                    # Extract just the message part
+                    if 'INFO - Write.py:' in line:
+                        msg = line.split('INFO - Write.py:', 1)[-1].strip()
+                        if msg and any(keyword in msg.lower() for keyword in [
+                            'chapter', 'outline', 'generating', 'writing', 
+                            'stage', 'scene', 'found', 'using model'
+                        ]):
+                            relevant_lines.append(msg)
             
             if relevant_lines:
-                log_text = '\n'.join(relevant_lines[-20:])  # Last 20 relevant lines
+                # Get last 15 relevant lines
+                log_text = '\n'.join(relevant_lines[-15:])
                 await update.message.reply_text(
-                    f"📋 Logs gần đây:\n\n```\n{log_text[:3000]}\n```",
+                    f"📋 Tiến trình gần đây:\n\n```\n{log_text[:3500]}\n```",
                     parse_mode='Markdown'
                 )
             else:
                 await update.message.reply_text(
-                    "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo..."
+                    "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo...\n\n"
+                    "💡 Thử lại sau vài giây."
                 )
         else:
             await update.message.reply_text(
-                "❌ Không thể đọc logs. Vui lòng thử lại sau."
+                "❌ Không thể đọc logs.\n\n"
+                "💡 Logs có thể xem trên server:\n"
+                "`sudo journalctl -u aistorywriter-bot -f`",
+                parse_mode='Markdown'
             )
             
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text(
+            "⏱️ Timeout khi đọc logs. Vui lòng thử lại."
+        )
     except Exception as e:
         logger.error(f"Error reading logs: {e}")
         await update.message.reply_text(
-            "❌ Lỗi khi đọc logs. Vui lòng liên hệ admin."
+            "❌ Lỗi khi đọc logs.\n\n"
+            "💡 Bạn có thể xem logs trên server:\n"
+            "`sudo journalctl -u aistorywriter-bot -f`",
+            parse_mode='Markdown'
         )
 
 
