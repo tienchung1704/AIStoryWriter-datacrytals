@@ -148,13 +148,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
     await update.message.reply_text(
         "👋 Xin chào! Tôi là AI Story Writer Bot.\n\n"
-        "📝 Gửi cho tôi một prompt và tôi sẽ tạo story cho bạn!\n\n"
+        "📝 Dùng lệnh /prompt để tạo story!\n\n"
         "Các lệnh:\n"
         "/start - Bắt đầu\n"
         "/help - Hướng dẫn\n"
+        "/prompt <text> - Tạo story từ prompt\n"
         "/example - Xem ví dụ prompt\n"
         "/log - Xem tiến trình tạo story\n\n"
-        "Chỉ cần gửi text prompt của bạn để bắt đầu!"
+        "Ví dụ:\n"
+        "/prompt Write a short story about a magical cat"
     )
 
 
@@ -162,13 +164,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command"""
     await update.message.reply_text(
         "📚 Hướng dẫn sử dụng:\n\n"
-        "1. Gửi prompt của bạn (tối đa 2000 ký tự)\n"
+        "1. Dùng lệnh /prompt theo sau là nội dung prompt\n"
         "2. Đợi bot xử lý (có thể mất vài phút đến vài giờ)\n"
-        "3. Nhận file story (.md) qua Telegram\n\n"
+        "3. Dùng /log để xem tiến trình\n"
+        "4. Nhận file story (.md) qua Telegram\n\n"
         "💡 Tips:\n"
         "- Prompt càng chi tiết, story càng hay\n"
         "- Mô tả rõ nhân vật, bối cảnh, cốt truyện\n"
-        "- Có thể yêu cầu thể loại, phong cách cụ thể"
+        "- Có thể yêu cầu thể loại, phong cách cụ thể\n\n"
+        "Ví dụ:\n"
+        "/prompt Write a sci-fi story about AI discovering emotions"
     )
 
 
@@ -241,11 +246,23 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle text messages as prompts"""
+async def prompt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /prompt command"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    prompt = update.message.text
+    
+    # Get prompt from command arguments
+    prompt_text = ' '.join(context.args)
+    
+    if not prompt_text:
+        await update.message.reply_text(
+            "❌ Vui lòng cung cấp prompt!\n\n"
+            "Cách dùng:\n"
+            "/prompt Your story prompt here\n\n"
+            "Ví dụ:\n"
+            "/prompt Write a short story about a magical cat"
+        )
+        return
     
     # Check if user is allowed (if whitelist is configured)
     if ALLOWED_USER_IDS and ALLOWED_USER_IDS[0] != '':
@@ -256,10 +273,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
     
     # Validate prompt length
-    if len(prompt) > MAX_PROMPT_LENGTH:
+    if len(prompt_text) > MAX_PROMPT_LENGTH:
         await update.message.reply_text(
             f"❌ Prompt quá dài! Tối đa {MAX_PROMPT_LENGTH} ký tự.\n"
-            f"Prompt của bạn: {len(prompt)} ký tự"
+            f"Prompt của bạn: {len(prompt_text)} ký tự"
         )
         return
     
@@ -276,17 +293,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Acknowledge receipt
     await update.message.reply_text(
         "✅ Đã nhận prompt!\n\n"
-        f"📝 Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}\n\n"
-        "⏳ Bắt đầu tạo story..."
+        f"📝 Prompt: {prompt_text[:100]}{'...' if len(prompt_text) > 100 else ''}\n\n"
+        "⏳ Bắt đầu tạo story...\n\n"
+        "💡 Dùng /log để xem tiến trình"
     )
     
     # Generate story in background
     try:
-        await generator.generate_story(prompt, user_id, chat_id, context)
+        await generator.generate_story(prompt_text, user_id, chat_id, context)
     finally:
         # Remove from active jobs
         if user_id in generator.active_jobs:
             del generator.active_jobs[user_id]
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle text messages - now just show help"""
+    await update.message.reply_text(
+        "ℹ️ Để tạo story, vui lòng dùng lệnh /prompt\n\n"
+        "Ví dụ:\n"
+        "/prompt Write a short story about a magical cat\n\n"
+        "Các lệnh khác:\n"
+        "/help - Xem hướng dẫn\n"
+        "/example - Xem ví dụ prompt\n"
+        "/log - Xem tiến trình"
+    )
 
 
 def main():
@@ -303,6 +334,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("example", example_command))
     application.add_handler(CommandHandler("log", log_command))
+    application.add_handler(CommandHandler("prompt", prompt_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Start bot
