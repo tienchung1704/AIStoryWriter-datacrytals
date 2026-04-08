@@ -1,22 +1,22 @@
 INITIAL_OUTLINE_WRITER_MODEL = (
-    "ollama://llama3:70b"  # Note this value is overridden by the argparser
+    "ollama://llama3"  # Note this value is overridden by the argparser
 )
 CHAPTER_OUTLINE_WRITER_MODEL = (
-    "ollama://llama3:70b"  # Note this value is overridden by the argparser
+    "ollama://llama3"  # Note this value is overridden by the argparser
 )
-CHAPTER_STAGE1_WRITER_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-CHAPTER_STAGE2_WRITER_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-CHAPTER_STAGE3_WRITER_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-CHAPTER_STAGE4_WRITER_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
+CHAPTER_STAGE1_WRITER_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+CHAPTER_STAGE2_WRITER_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+CHAPTER_STAGE3_WRITER_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+CHAPTER_STAGE4_WRITER_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
 CHAPTER_REVISION_WRITER_MODEL = (
-    "ollama://llama3:70b"  # Note this value is overridden by the argparser
+    "ollama://llama3"  # Note this value is overridden by the argparser
 )
-REVISION_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-EVAL_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-INFO_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-SCRUB_MODEL = "ollama://llama3:70b"  # Note this value is overridden by the argparser
-CHECKER_MODEL = "ollama://llama3:70b"  # Model used to check results
-TRANSLATOR_MODEL = "ollama://llama3:70b"
+REVISION_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+EVAL_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+INFO_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+SCRUB_MODEL = "ollama://llama3"  # Note this value is overridden by the argparser
+CHECKER_MODEL = "ollama://llama3"  # Model used to check results
+TRANSLATOR_MODEL = "ollama://llama3"
 
 OLLAMA_CTX = 8192
 

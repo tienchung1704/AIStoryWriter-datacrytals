@@ -121,6 +121,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .venv
 env/
 venv/
@@ -164,3 +165,8 @@ Stories/*
 Prompts/*
 Logs/*
 EvalLogs/*
+
+# Deployment scripts (keep local only)
+deploy.sh
+deploy.ps1
+scripts/check-env.sh
