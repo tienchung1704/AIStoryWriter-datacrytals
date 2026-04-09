@@ -287,106 +287,39 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Read logs from journalctl
+    # Just display the raw last 80 lines either from bot.log or journalctl
     try:
         import subprocess
+        log_text = ""
         
-        # Try to read from journalctl (systemd service logs)
-        result = subprocess.run(
-            ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
-            capture_output=True,
-            text=True,
-            timeout=10
+        # Priority 1: Check bot.log used by restart-bot.sh
+        if os.path.exists('bot.log'):
+            with open('bot.log', 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                recent_lines = lines[-80:] if len(lines) > 80 else lines
+                log_text = "".join(recent_lines)
+        else:
+            # Priority 2: Try journalctl
+            result = subprocess.run(
+                ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                log_text = result.stdout
+            else:
+                log_text = "❌ Không tìm thấy bot.log và không có quyền đọc journalctl."
+                
+        # Trim if it's too long for Telegram (max ~4000 chars)
+        if len(log_text) > 3500:
+            log_text = "...\n" + log_text[-3500:]
+            
+        await update.message.reply_text(
+            f"📋 Log 80 dòng cuối:\n\n```\n{log_text}\n```",
+            parse_mode='Markdown'
         )
         
-        if result.returncode == 0:
-            logs = result.stdout
-            
-            # Filter for relevant Write.py output
-            relevant_lines = []
-            for line in logs.split('\n'):
-                # Look for important progress indicators
-                if any(keyword in line.lower() for keyword in [
-                    'chapter', 'outline', 'generating', 'writing', 
-                    'stage', 'scene', 'found', 'using model', 'done',
-                    'feedback', 'revision', 'context length', 'retry'
-                ]):
-                    # Clean up the line - remove systemd prefix
-                    if 'Write.py:' in line:
-                        msg = line.split('Write.py:', 1)[-1].strip()
-                        relevant_lines.append(msg)
-                    elif any(k in line for k in ['[', ']']):
-                        # Extract message after timestamp
-                        parts = line.split(']', 2)
-                        if len(parts) >= 3:
-                            msg = parts[2].strip()
-                            if msg:
-                                relevant_lines.append(msg)
-            
-            if relevant_lines:
-                # Get last 20 relevant lines
-                log_text = '\n'.join(relevant_lines[-20:])
-                await update.message.reply_text(
-                    f"📋 Tiến trình gần đây:\n\n```\n{log_text[:3500]}\n```",
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.message.reply_text(
-                    "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo...\n\n"
-                    "💡 Thử lại sau vài giây."
-                )
-        else:
-            # Fallback to file-based logs if journalctl fails
-            await update.message.reply_text(
-                "⚠️ Không thể đọc journalctl (cần setup sudo).\n\n"
-                "Đang thử đọc từ file log..."
-            )
-            
-            # Try reading from log files as fallback using relative path
-            import glob
-            log_files = glob.glob("Logs/Generation_*/Main.log")
-            
-            if not log_files:
-                await update.message.reply_text(
-                    "❌ Không tìm thấy log file nào."
-                )
-                return
-            
-            latest_log = max(log_files, key=os.path.getmtime)
-            
-            with open(latest_log, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                recent_lines = lines[-50:] if len(lines) > 50 else lines
-            
-            relevant_lines = []
-            for line in recent_lines:
-                line = line.strip()
-                if any(keyword in line.lower() for keyword in [
-                    'chapter', 'outline', 'generating', 'writing', 
-                    'stage', 'scene', 'found', 'using model', 'done',
-                    'error', 'warning', 'info'
-                ]):
-                    # Just append the line, remove too long prefix if needed
-                    # Splitting by " - " is commonly used in python logging
-                    parts = line.split(" - ", 3)
-                    if len(parts) >= 4:
-                        relevant_lines.append(parts[-1])
-                    else:
-                        relevant_lines.append(line)
-            
-            if relevant_lines:
-                log_text = '\n'.join(relevant_lines[-20:])
-                await update.message.reply_text(
-                    f"📋 Tiến trình (từ file):\n\n```\n{log_text[:3500]}\n```",
-                    parse_mode='Markdown'
-                )
-            else:
-                # Detail the latest lines if no keywords match
-                raw_text = '\n'.join([line.strip()[-80:] for line in recent_lines[-10:]])
-                await update.message.reply_text(
-                    f"ℹ️ Chưa lặp được thông tin chính xác. Các log mới nhất:\n\n```\n{raw_text[:3500]}\n```"
-                )
-            
     except subprocess.TimeoutExpired:
         await update.message.reply_text(
             "⏱️ Timeout khi đọc logs. Vui lòng thử lại."
@@ -394,8 +327,7 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error reading logs: {e}")
         await update.message.reply_text(
-            f"❌ Lỗi khi đọc logs: {str(e)}\n\n"
-            "💡 Vui lòng thử lại sau."
+            f"❌ Lỗi khi đọc logs: {str(e)}"
         )
 
 
