@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # Configuration
-MAX_PROMPT_LENGTH = 2000
+MAX_PROMPT_LENGTH = 10000  # Increased to 10K characters
 ALLOWED_USER_IDS = os.getenv('ALLOWED_USER_IDS', '').split(',')  # Comma-separated user IDs
 ADMIN_USER_IDS = os.getenv('ADMIN_USER_IDS', '').split(',')  # Admin user IDs for bot control
 
@@ -274,7 +274,7 @@ async def example_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /log command - show recent generation logs"""
+    """Handle /log command - show recent generation logs from journalctl"""
     user_id = update.effective_user.id
     
     # Check if user has active job
@@ -284,70 +284,99 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Find the latest log file for this user
+    # Read logs from journalctl
     try:
-        import glob
-        import os
+        import subprocess
         
-        # Look for log files in Logs directory
-        log_pattern = "Logs/Generation_*/Main.log"
-        log_files = glob.glob(log_pattern)
+        # Try to read from journalctl (systemd service logs)
+        result = subprocess.run(
+            ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
         
-        if not log_files:
-            await update.message.reply_text(
-                "ℹ️ Chưa có log file nào. Story đang được khởi tạo...\n\n"
-                "💡 Thử lại sau vài giây."
-            )
-            return
-        
-        # Get the most recent log file
-        latest_log = max(log_files, key=os.path.getmtime)
-        
-        # Read last 50 lines from the log file
-        with open(latest_log, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            recent_lines = lines[-50:] if len(lines) > 50 else lines
-        
-        # Filter for important progress messages
-        relevant_lines = []
-        for line in recent_lines:
-            line = line.strip()
-            # Look for progress indicators
-            if any(keyword in line.lower() for keyword in [
-                'chapter', 'outline', 'generating', 'writing', 
-                'stage', 'scene', 'found', 'using model', 'done',
-                'feedback', 'revision', 'scrub', 'translat'
-            ]):
-                # Clean up the line - remove timestamps and log levels
-                # Format: [level] [timestamp] message
-                parts = line.split(']', 2)
-                if len(parts) >= 3:
-                    msg = parts[2].strip()
-                    relevant_lines.append(msg)
-                elif len(parts) == 2:
-                    msg = parts[1].strip()
-                    relevant_lines.append(msg)
-                else:
-                    relevant_lines.append(line)
-        
-        if relevant_lines:
-            # Get last 20 relevant lines
-            log_text = '\n'.join(relevant_lines[-20:])
-            await update.message.reply_text(
-                f"📋 Tiến trình gần đây:\n\n```\n{log_text[:3500]}\n```\n\n"
-                f"📁 Log file: {os.path.basename(os.path.dirname(latest_log))}",
-                parse_mode='Markdown'
-            )
+        if result.returncode == 0:
+            logs = result.stdout
+            
+            # Filter for relevant Write.py output
+            relevant_lines = []
+            for line in logs.split('\n'):
+                # Look for important progress indicators
+                if any(keyword in line.lower() for keyword in [
+                    'chapter', 'outline', 'generating', 'writing', 
+                    'stage', 'scene', 'found', 'using model', 'done',
+                    'feedback', 'revision', 'context length', 'retry'
+                ]):
+                    # Clean up the line - remove systemd prefix
+                    if 'Write.py:' in line:
+                        msg = line.split('Write.py:', 1)[-1].strip()
+                        relevant_lines.append(msg)
+                    elif any(k in line for k in ['[', ']']):
+                        # Extract message after timestamp
+                        parts = line.split(']', 2)
+                        if len(parts) >= 3:
+                            msg = parts[2].strip()
+                            if msg:
+                                relevant_lines.append(msg)
+            
+            if relevant_lines:
+                # Get last 20 relevant lines
+                log_text = '\n'.join(relevant_lines[-20:])
+                await update.message.reply_text(
+                    f"📋 Tiến trình gần đây:\n\n```\n{log_text[:3500]}\n```",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text(
+                    "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo...\n\n"
+                    "💡 Thử lại sau vài giây."
+                )
         else:
+            # Fallback to file-based logs if journalctl fails
             await update.message.reply_text(
-                "ℹ️ Chưa có logs chi tiết. Story đang được khởi tạo...\n\n"
-                "💡 Thử lại sau vài giây."
+                "⚠️ Không thể đọc journalctl (cần setup sudo).\n\n"
+                "Đang thử đọc từ file log..."
             )
             
-    except FileNotFoundError:
+            # Try reading from log files as fallback
+            import glob
+            log_files = glob.glob("/home/netviet/AIStoryWriter-datacrytals/Logs/Generation_*/Main.log")
+            
+            if not log_files:
+                await update.message.reply_text(
+                    "❌ Không tìm thấy log file nào."
+                )
+                return
+            
+            latest_log = max(log_files, key=os.path.getmtime)
+            
+            with open(latest_log, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                recent_lines = lines[-50:] if len(lines) > 50 else lines
+            
+            relevant_lines = []
+            for line in recent_lines:
+                line = line.strip()
+                if any(keyword in line.lower() for keyword in [
+                    'chapter', 'outline', 'generating', 'writing', 
+                    'stage', 'scene', 'found', 'using model', 'done'
+                ]):
+                    parts = line.split(']', 2)
+                    if len(parts) >= 3:
+                        msg = parts[2].strip()
+                        relevant_lines.append(msg)
+            
+            if relevant_lines:
+                log_text = '\n'.join(relevant_lines[-20:])
+                await update.message.reply_text(
+                    f"📋 Tiến trình (từ file):\n\n```\n{log_text[:3500]}\n```",
+                    parse_mode='Markdown'
+                )
+            
+    except subprocess.TimeoutExpired:
         await update.message.reply_text(
-            "❌ Không tìm thấy log file.\n\n"
-            "💡 Story có thể chưa bắt đầu hoặc đã hoàn thành."
+            "⏱️ Timeout khi đọc logs. Vui lòng thử lại."
         )
     except Exception as e:
         logger.error(f"Error reading logs: {e}")
@@ -409,13 +438,16 @@ async def prompt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💡 Dùng /log để xem tiến trình"
     )
     
-    # Generate story in background
-    try:
-        await generator.generate_story(prompt_text, user_id, chat_id, context)
-    finally:
-        # Remove from active jobs
-        if user_id in generator.active_jobs:
-            del generator.active_jobs[user_id]
+    # Generate story in background using create_task so /log and /kill can work
+    async def _run_and_cleanup():
+        try:
+            await generator.generate_story(prompt_text, user_id, chat_id, context)
+        finally:
+            # Remove from active jobs
+            if user_id in generator.active_jobs:
+                del generator.active_jobs[user_id]
+    
+    asyncio.create_task(_run_and_cleanup())
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -520,7 +552,7 @@ def main():
         sys.exit(1)
     
     # Create application
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).concurrent_updates(True).build()
     
     # Add handlers
     application.add_handler(CommandHandler("start", start))
