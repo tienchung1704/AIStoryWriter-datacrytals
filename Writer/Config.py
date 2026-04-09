@@ -18,9 +18,12 @@ SCRUB_MODEL = "ollama://llama3"  # Note this value is overridden by the argparse
 CHECKER_MODEL = "ollama://llama3"  # Model used to check results
 TRANSLATOR_MODEL = "ollama://llama3"
 
-OLLAMA_CTX = 8192
+OLLAMA_CTX = 65536  # 64K tokens - increased for longer story generation
 
 OLLAMA_HOST = "127.0.0.1:11434"
+
+# Maximum retry attempts for failed generations (prevents infinite loops)
+MAX_RETRY_ATTEMPTS = 10
 
 SEED = 12  # Note this value is overridden by the argparser
 

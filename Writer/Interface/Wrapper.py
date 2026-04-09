@@ -155,14 +155,20 @@ class Interface:
 
         NewMsg = self.ChatAndStreamResponse(_Logger, _Messages, _Model, _SeedOverride, _Format)
 
+        retry_count = 0
         while (self.GetLastMessageText(NewMsg).strip() == "") or (len(self.GetLastMessageText(NewMsg).split(" ")) < _MinWordCount):
+            if retry_count >= Writer.Config.MAX_RETRY_ATTEMPTS:
+                _Logger.Log(f"SafeGenerateText: Max retry attempts ({Writer.Config.MAX_RETRY_ATTEMPTS}) reached. Giving up.", 7)
+                raise Exception(f"Failed to generate valid text after {Writer.Config.MAX_RETRY_ATTEMPTS} attempts")
+            
             if self.GetLastMessageText(NewMsg).strip() == "":
-                _Logger.Log("SafeGenerateText: Generation Failed Due To Empty (Whitespace) Response, Reattempting Output", 7)
+                _Logger.Log(f"SafeGenerateText: Generation Failed Due To Empty (Whitespace) Response, Reattempting Output (Attempt {retry_count + 1}/{Writer.Config.MAX_RETRY_ATTEMPTS})", 7)
             elif (len(self.GetLastMessageText(NewMsg).split(" ")) < _MinWordCount):
-                _Logger.Log(f"SafeGenerateText: Generation Failed Due To Short Response ({len(self.GetLastMessageText(NewMsg).split(' '))}, min is {_MinWordCount}), Reattempting Output", 7)
+                _Logger.Log(f"SafeGenerateText: Generation Failed Due To Short Response ({len(self.GetLastMessageText(NewMsg).split(' '))}, min is {_MinWordCount}), Reattempting Output (Attempt {retry_count + 1}/{Writer.Config.MAX_RETRY_ATTEMPTS})", 7)
 
             del _Messages[-1] # Remove failed attempt
             NewMsg = self.ChatAndStreamResponse(_Logger, _Messages, _Model, random.randint(0, 99999), _Format)
+            retry_count += 1
 
         self.RemoveThinkTagFromAssistantMessages(NewMsg)
 
@@ -175,7 +181,12 @@ class Interface:
     
     def SafeGenerateJSON(self, _Logger, _Messages, _Model:str, _SeedOverride:int = -1, _RequiredAttribs:list = []):
 
+        retry_count = 0
         while True:
+            if retry_count >= Writer.Config.MAX_RETRY_ATTEMPTS:
+                _Logger.Log(f"SafeGenerateJSON: Max retry attempts ({Writer.Config.MAX_RETRY_ATTEMPTS}) reached. Giving up.", 7)
+                raise Exception(f"Failed to generate valid JSON after {Writer.Config.MAX_RETRY_ATTEMPTS} attempts")
+            
             Response = self.SafeGenerateText(_Logger, _Messages, _Model, _SeedOverride, _Format = "JSON")
             try:
                 last_message = self.GetLastMessageText(Response)
@@ -195,9 +206,10 @@ class Interface:
                 return Response, JSONResponse
 
             except Exception as e:
-                _Logger.Log(f"JSON Error during parsing: {e}", 7)
+                _Logger.Log(f"JSON Error during parsing: {e} (Attempt {retry_count + 1}/{Writer.Config.MAX_RETRY_ATTEMPTS})", 7)
                 del _Messages[-1] # Remove failed attempt
                 Response = self.ChatAndStreamResponse(_Logger, _Messages, _Model, random.randint(0, 99999), _Format = "JSON")
+                retry_count += 1
 
 
 
