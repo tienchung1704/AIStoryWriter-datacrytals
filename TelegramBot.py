@@ -287,36 +287,28 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Just display the raw last 80 lines either from bot.log or journalctl
+    # Just display the raw last 80 lines from journalctl directly
     try:
         import subprocess
         log_text = ""
         
-        # Priority 1: Check bot.log used by restart-bot.sh
-        if os.path.exists('bot.log'):
-            with open('bot.log', 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                recent_lines = lines[-80:] if len(lines) > 80 else lines
-                log_text = "".join(recent_lines)
+        result = subprocess.run(
+            ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            log_text = result.stdout
         else:
-            # Priority 2: Try journalctl
-            result = subprocess.run(
-                ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode == 0:
-                log_text = result.stdout
-            else:
-                log_text = "❌ Không tìm thấy bot.log và không có quyền đọc journalctl."
+            log_text = f"❌ Lỗi lệnh journalctl: {result.stderr}"
                 
         # Trim if it's too long for Telegram (max ~4000 chars)
         if len(log_text) > 3500:
             log_text = "...\n" + log_text[-3500:]
             
         await update.message.reply_text(
-            f"📋 Log 80 dòng cuối:\n\n```\n{log_text}\n```",
+            f"📋 Log 80 dòng cuối (journalctl):\n\n```\n{log_text}\n```",
             parse_mode='Markdown'
         )
         
