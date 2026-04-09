@@ -293,7 +293,7 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log_text = ""
         
         result = subprocess.run(
-            ['sudo', 'journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
+            ['/usr/bin/sudo', '/usr/bin/journalctl', '-u', 'aistorywriter-bot', '-n', '80', '--no-pager'],
             capture_output=True,
             text=True,
             timeout=10
