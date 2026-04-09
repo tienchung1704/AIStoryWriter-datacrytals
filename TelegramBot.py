@@ -342,9 +342,9 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Đang thử đọc từ file log..."
             )
             
-            # Try reading from log files as fallback
+            # Try reading from log files as fallback using relative path
             import glob
-            log_files = glob.glob("/home/netviet/AIStoryWriter-datacrytals/Logs/Generation_*/Main.log")
+            log_files = glob.glob("Logs/Generation_*/Main.log")
             
             if not log_files:
                 await update.message.reply_text(
@@ -363,18 +363,28 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 line = line.strip()
                 if any(keyword in line.lower() for keyword in [
                     'chapter', 'outline', 'generating', 'writing', 
-                    'stage', 'scene', 'found', 'using model', 'done'
+                    'stage', 'scene', 'found', 'using model', 'done',
+                    'error', 'warning', 'info'
                 ]):
-                    parts = line.split(']', 2)
-                    if len(parts) >= 3:
-                        msg = parts[2].strip()
-                        relevant_lines.append(msg)
+                    # Just append the line, remove too long prefix if needed
+                    # Splitting by " - " is commonly used in python logging
+                    parts = line.split(" - ", 3)
+                    if len(parts) >= 4:
+                        relevant_lines.append(parts[-1])
+                    else:
+                        relevant_lines.append(line)
             
             if relevant_lines:
                 log_text = '\n'.join(relevant_lines[-20:])
                 await update.message.reply_text(
                     f"📋 Tiến trình (từ file):\n\n```\n{log_text[:3500]}\n```",
                     parse_mode='Markdown'
+                )
+            else:
+                # Detail the latest lines if no keywords match
+                raw_text = '\n'.join([line.strip()[-80:] for line in recent_lines[-10:]])
+                await update.message.reply_text(
+                    f"ℹ️ Chưa lặp được thông tin chính xác. Các log mới nhất:\n\n```\n{raw_text[:3500]}\n```"
                 )
             
     except subprocess.TimeoutExpired:
