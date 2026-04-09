@@ -201,10 +201,13 @@ class StoryGenerator:
                     text="⛔ Story generation đã bị dừng bởi lệnh /kill"
                 )
             else:
-                error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                # stderr is merged into stdout, so use stdout for error info
+                error_msg = stdout.decode('utf-8').strip() if stdout else "Unknown error"
+                # Get last 500 chars which usually contain the actual error
+                error_tail = error_msg[-500:] if len(error_msg) > 500 else error_msg
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"❌ Lỗi khi tạo story:\n{error_msg[:500]}"
+                    text=f"❌ Lỗi khi tạo story (exit code {process.returncode}):\n{error_tail}"
                 )
                 
         except Exception as e:
