@@ -7,7 +7,7 @@
 set -e
 
 SERVER="netviet@192.168.1.20"
-TARGET_DIR="/data/subtitle/AIStoryWriter"
+TARGET_DIR="/home/netviet/projects/AIStoryWriter"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMP_DIR="/tmp/aistorywriter_deploy_$$"
 
@@ -26,7 +26,7 @@ mkdir -p "$TEMP_DIR"
 echo "Copying files to temp directory..."
 rsync -a --exclude='.git/' --exclude='__pycache__/' --exclude='*.pyc' \
   --exclude='.env' --exclude='Logs/' --exclude='.venv/' --exclude='venv/' \
-  --exclude='*.log' --exclude='deploy-*.sh' --exclude='create-directories.sh' \
+  --exclude='*.log' --exclude='deploy-to-new-server.sh' --exclude='deploy-with-scp.sh' --exclude='create-directories.sh' \
   "$SCRIPT_DIR/" "$TEMP_DIR/" 2>/dev/null || \
 cp -r "$SCRIPT_DIR"/* "$TEMP_DIR/" 2>/dev/null
 

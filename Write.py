@@ -171,7 +171,7 @@ Parser.add_argument(
 Parser.add_argument(
     "-SceneGenerationPipeline",
     action="store_true",
-    default=True,
+    default=False,
     help="Use the new scene-by-scene generation pipeline as an initial starting point for chapter writing",
 )
 Args = Parser.parse_args()

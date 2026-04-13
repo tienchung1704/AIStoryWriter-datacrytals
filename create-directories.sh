@@ -16,20 +16,17 @@ echo "You will be prompted for password..."
 
 ssh -t $SERVER << 'EOF'
 # Tạo thư mục
-sudo mkdir -p /data/subtitle/AIStoryWriter
-sudo mkdir -p /data/subtitle/NovelClaw
-
-# Chuyển quyền sở hữu
-sudo chown -R netviet:netviet /data/subtitle/
+mkdir -p /home/netviet/projects/AIStoryWriter
+mkdir -p /home/netviet/projects/NovelClaw
 
 # Kiểm tra
 echo ""
 echo "Directories created:"
-ls -lh /data/subtitle/
+ls -lh /home/netviet/projects/
 
 echo ""
 echo "Disk space:"
-df -h /data/subtitle/
+df -h /home/netviet/
 EOF
 
 echo ""

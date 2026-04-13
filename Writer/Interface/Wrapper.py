@@ -192,9 +192,18 @@ class Interface:
                 last_message = self.GetLastMessageText(Response)
                 
                 # format last message
-                last_message = re.sub(r'^```json\s*', '', last_message)
-                last_message = re.sub(r'\s*```$', '', last_message)
-
+                last_message = self.GetLastMessageText(Response).strip()
+                
+                # Extra formatting to extract JSON block using regex if there's conversational text
+                json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', last_message)
+                if json_match:
+                    last_message = json_match.group(1)
+                else:
+                    # Try to extract something that looks like an object or array
+                    json_match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', last_message)
+                    if json_match:
+                        last_message = json_match.group(1)
+                
                 # return valid json
                 JSONResponse = json.loads(last_message)
 

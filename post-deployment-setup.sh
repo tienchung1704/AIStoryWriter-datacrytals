@@ -6,7 +6,7 @@
 
 set -e
 
-PROJECT_DIR="/data/subtitle/AIStoryWriter"
+PROJECT_DIR="/home/netviet/projects/AIStoryWriter"
 
 echo "=========================================="
 echo "AIStoryWriter Post-Deployment Setup"
